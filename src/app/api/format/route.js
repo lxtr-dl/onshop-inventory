@@ -1,5 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 
+// 1. Tell Vercel to allow up to 60 seconds for this AI request (default is only 15s!)
+export const maxDuration = 60; 
+
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function POST(req) {
@@ -49,6 +52,7 @@ export async function POST(req) {
          #1___TAB___Black Bnew HB___TAB___(2)
 
       Return a JSON object with EXACTLY the keys "listingFormat", "spreadsheetFormat", and "reverseCountFormat".
+      CRITICAL: Output ONLY the raw JSON object. Do not add any conversational text before or after the JSON.
       
       Raw text:
       ${rawText}
@@ -62,7 +66,16 @@ export async function POST(req) {
       }
     });
     
-    const parsedData = JSON.parse(response.text);
+    let rawJson = response.text;
+    
+    // 2. BULLETPROOF JSON EXTRACTION: Strip out any accidental text the AI adds outside the { } brackets
+    const firstBrace = rawJson.indexOf('{');
+    const lastBrace = rawJson.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      rawJson = rawJson.slice(firstBrace, lastBrace + 1);
+    }
+
+    const parsedData = JSON.parse(rawJson);
 
     parsedData.spreadsheetFormat = parsedData.spreadsheetFormat.replace(/___TAB___/g, '\t');
     parsedData.reverseCountFormat = parsedData.reverseCountFormat.replace(/___TAB___/g, '\t');
